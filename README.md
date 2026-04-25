@@ -1,79 +1,157 @@
-# Byte Recovery Tool
+# 🔍 Byte Recovery Pro
 
-A simple and effective file recovery tool built in Python. This tool uses a technique known as **File Carving**, which means it bypasses the file system entirely (like NTFS or FAT32) and reads the raw bytes on the disk to find hidden or deleted files based on their file signatures (Magic Numbers).
+> **Advanced File Carving & Recovery Utility**  
+> Developed by **Guru Kannan**
 
-## Features
-- Recovers deleted files directly from physical drives or disk image files (`.img`, `.dd`).
-- Supports recovering almost all common file types:
+Byte Recovery Pro is a powerful, cross-platform file recovery tool that uses **File Carving** — bypassing the file system entirely — to scan raw disk sectors and recover deleted files based on their binary signatures (Magic Numbers).
+
+Available in two modes:
+- 🖥️ **Desktop GUI App** — Modern, beautiful UI powered by Python + HTML/CSS
+- ⌨️ **CLI / Terminal** — Full-featured command-line interface for power users
+
+---
+
+## ✨ Features
+
+- **Deep Sector Scanning** — Reads raw disk bytes, recovering files even after deletion, format, or partition loss.
+- **30+ File Types Supported:**
   - **Images**: `.jpg`, `.png`, `.gif`, `.bmp`, `.tif`, `.webp`
-  - **Documents**: `.pdf`, `.doc`, `.xls`, `.ppt`, `.rtf` (Note: `.docx`, `.xlsx`, etc. are recovered as `.zip`)
+  - **Documents**: `.pdf`, `.doc`, `.xls`, `.ppt`, `.rtf`, `.docx`, `.xlsx`, `.pptx` (Office files detected inside ZIPs)
   - **Archives**: `.zip`, `.rar`, `.7z`, `.gz`, `.tar`
-  - **Media**: `.mp3`, `.mp4`, `.avi`, `.wav`, `.mkv`, `.flv`
+  - **Audio/Video**: `.mp3`, `.mp4`, `.avi`, `.wav`, `.mkv`, `.flv`, `.ogg`, `.flac`
   - **Executables & DBs**: `.exe`, `.sqlite`
-- Cross-platform, but fully supports Windows raw drive access (e.g., `\\.\C:`).
+- **Cross-Platform** — Windows (`\\.\D:`), macOS (`/dev/rdisk2`), and Linux (`/dev/sdb`)
+- **Type Filtering** — Recover only the file types you need
+- **Live Progress** — Real-time stats: MB scanned, files found, files saved
+- **Smart Chunk Scanning** — 512KB chunks with cross-boundary detection for maximum accuracy
 
-## Prerequisites
-- **Python 3.x** installed on your system.
-- **Administrator Privileges**: On Windows, accessing physical raw drives requires running the terminal/command prompt as an Administrator.
+---
 
-## How to Run
+## 📋 Prerequisites
 
-**Requires Administrator privileges** - Right-click Command Prompt/PowerShell and select "Run as administrator".
+| Requirement | Notes |
+|---|---|
+| **Python 3.8+** | Download from [python.org](https://python.org) |
+| **eel** (for GUI) | `pip install eel` |
+| **Admin/Root privileges** | Required to read raw disk data |
 
-### Interactive Mode (Recommended)
-```cmd
+---
+
+## 🚀 How to Run
+
+### Option 1: GUI Desktop App (Recommended)
+
+Install the dependency and launch:
+
+```bash
+pip install eel
+python app.py
+```
+
+> **Windows**: Run Command Prompt as Administrator before running the above.  
+> **Mac/Linux**: Use `sudo python3 app.py`
+
+The app will open a beautiful desktop window where you can:
+- Select your target drive from a dropdown or type it manually
+- Choose your output folder
+- Filter specific file types
+- Watch real-time scan progress
+
+---
+
+### Option 2: CLI — Interactive Mode
+
+```bash
 python recovery.py
 ```
 
-### CLI Mode
-```cmd
+The tool will guide you step-by-step with prompts.
+
+---
+
+### Option 3: CLI — Direct Command Mode
+
+```bash
+# Windows – Recover all files from drive D:
 python recovery.py -d D -o ./recovered
+
+# Mac/Linux – Scan a raw disk
+sudo python3 recovery.py -d /dev/rdisk2 -o ./recovered
+
+# Recover ONLY photos
+python recovery.py -d D -t jpg png gif -o ./photos
+
+# Scan a disk image file
+python recovery.py -d ./backup.img -o ./recovered
 ```
 
-**Options:**
+**All CLI Options:**
+
 | Flag | Description |
 |------|-------------|
-| `-d, --drive` | Drive letter (e.g., `D`) or `PhysicalDriveN` |
+| `-d, --drive` | Target drive or image file path |
 | `-o, --output` | Output directory (default: `./recovered`) |
 | `-m, --max-size` | Max file size in MB (default: 50) |
-| `-t, --types` | Filter by file types (e.g., `jpg png pdf`) |
-| `--offset` | Start at byte offset |
+| `-t, --types` | Filter by types (e.g., `jpg png pdf`) |
+| `--offset` | Start scan at byte offset |
 | `--limit` | Stop after N bytes |
-| `--list-drives` | Show available drives |
-| `--list-types` | Show supported file types |
+| `-v, --verbose` | Enable debug output |
+| `--list-drives` | Show available drives (Windows only) |
+| `--list-types` | List all supported file types |
 
-**Examples:**
-```cmd
-# Recover only images from USB drive D
-python recovery.py -d D -t jpg png gif bmp -o ./photos
+---
 
-# Scan first 10GB of physical drive 0, max 100MB files
-python recovery.py -d PhysicalDrive0 -m 100 --limit 10737418240
+## 🏗️ Build Windows .exe
 
-# Show available drives
-python recovery.py --list-drives
+To distribute as a standalone Windows executable, run the included batch script on a Windows machine:
 
-# List supported file types
-python recovery.py --list-types
+```bat
+build.bat
 ```
 
-## How it Works
-When a file is deleted on Windows, the OS marks the space as "available" in the Master File Table (MFT), but the actual data remains until overwritten.
+This installs `PyInstaller` and packages everything into a single `dist/ByteRecoveryPro.exe`.
 
-This tool uses **file carving**:
-1. Opens the raw disk using Win32 API (requires Admin)
-2. Scans disk in 512KB chunks for known **magic numbers** (file signatures)
-3. When a header is found, reads until the **footer** is detected or max size reached
-4. Handles signatures that span chunk boundaries
-5. Auto-detects Office/ZIP-based formats (docx, xlsx, etc.) by content inspection
+---
 
-**Key improvements:**
-- Proper Windows raw drive access via `CreateFileW` with `FILE_FLAG_NO_BUFFERING`
-- 512KB read chunks (not 512 bytes) for much faster scanning
-- Cross-boundary signature detection prevents missed files
-- Footer detection for accurate file size (JPG, PDF, ZIP, etc.)
-- Type filtering and scan limits for targeted recovery
+## 🔬 How It Works
 
-## Limitations
-- Fragmented files might not be recovered correctly (File Carving expects the data to be contiguous on the disk).
-- Original file names are lost (recovered files will be named `recovered_1.jpg`, `recovered_2.pdf`, etc.) because the file system metadata is ignored.
+When a file is deleted, the OS only removes its entry from the file system index (like NTFS MFT). The actual data sits untouched until overwritten.
+
+**Byte Recovery Pro's carving process:**
+
+1. Opens the raw physical drive using OS-level APIs (Win32 `CreateFileW` on Windows, direct `open()` on Unix)
+2. Reads the disk in **512KB chunks** for maximum speed
+3. Scans each buffer for known **magic number headers** (e.g., `FF D8 FF` for JPEG)
+4. When a header is found, reads until a matching **footer** is detected or the max file size is reached
+5. Detects Office formats (`.docx`, `.xlsx`) by inspecting ZIP archive contents
+6. Saves each carved file to the output directory
+
+---
+
+## ⚠️ Limitations
+
+- **Fragmented files** may be partially recovered or corrupted (carving assumes contiguous data)
+- **Original filenames & folders** are lost — files are saved as `recovered_TIMESTAMP_000001.jpg`
+- **macOS internal drives** are protected by System Integrity Protection (SIP); use an external USB drive for testing on Mac
+- **BitLocker-encrypted drives** on Windows: target the drive letter (e.g., `D`) instead of `PhysicalDriveN` for on-the-fly decryption
+
+---
+
+## 📁 Project Structure
+
+```
+byte-recovery/
+├── app.py            # GUI desktop app entry point (uses Eel)
+├── recovery.py       # Core carving engine + CLI interface
+├── build.bat         # Windows .exe build script
+├── web/
+│   ├── index.html    # App UI layout
+│   ├── style.css     # App styling (glassmorphism, dark mode)
+│   └── script.js     # Frontend logic & Eel bridge
+├── README.md         # This file
+└── TUTORIAL.md       # Step-by-step usage guide
+```
+
+---
+
+*Developed with ❤️ by **Guru Kannan***

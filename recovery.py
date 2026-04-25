@@ -156,12 +156,13 @@ class RecoveryStats:
 
 class RecoveryEngine:
     def __init__(self, drive_path: str, output_dir: str, max_size: int = DEFAULT_MAX_FILE_SIZE,
-                 file_types: Optional[Set[str]] = None, verbose: bool = False):
+                 file_types: Optional[Set[str]] = None, verbose: bool = False, progress_callback=None):
         self.drive_path = drive_path
         self.output_dir = Path(output_dir)
         self.max_size = max_size
         self.file_types = file_types
         self.verbose = verbose
+        self.progress_callback = progress_callback
         self.stats = RecoveryStats()
         self.output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -273,17 +274,20 @@ class RecoveryEngine:
         
         # Open drive
         try:
+            if os.path.isdir(self.drive_path):
+                raise ValueError(f"Target cannot be a directory ('{self.drive_path}'). You must specify a raw drive or a disk image file.")
+                
             if sys.platform == 'win32' and (self.drive_path[0].isalpha() or 
                                                'physicaldrive' in self.drive_path.lower()):
                 fh = open_raw_drive_windows(self.drive_path)
             else:
                 fh = open(self.drive_path, 'rb')
         except PermissionError as e:
-            print(f"[!] {e}")
-            return
+            raise PermissionError(f"Permission denied. Did you forget to run with sudo (Mac/Linux) or as Administrator (Windows)?\n{e}")
         except Exception as e:
-            print(f"[!] Cannot open drive: {e}")
-            return
+            if isinstance(e, ValueError):
+                raise e
+            raise Exception(f"Cannot open drive: {e}")
         
         try:
             fh.seek(start_offset)
@@ -333,6 +337,9 @@ class RecoveryEngine:
                     progress_text += f"{Colors.OKBLUE}Saved: {self.stats.recovered}{Colors.ENDC}"
                     sys.stdout.write(progress_text)
                     sys.stdout.flush()
+                    
+                    if hasattr(self, 'progress_callback') and self.progress_callback:
+                        self.progress_callback(bytes_read, self.stats.found, self.stats.recovered)
         
         finally:
             fh.close()
@@ -342,14 +349,12 @@ if __name__ == "__main__":
     import argparse
     
     ASCII_ART = f"""{Colors.OKBLUE}{Colors.BOLD}
- ____        _         ____                                
-|  _ \      | |       |  _ \                               
-| |_) |_   _| |_ ___  | |_) | ___  ___ _____   _____ _ __  
-|  _ <| | | | __/ _ \ |  _ < / _ \/ __/ _ \ \ / / _ \ '__| 
-| |_) | |_| | ||  __/ | |_) |  __/ (_| (_) \ V /  __/ |    
-|____/ \__, |\__\___| |____/ \___|\___\___/ \_/ \___|_|    
-        __/ |                                              
-       |___/                                               
+    ____        __         ____                                
+   / __ )__  __/ /____    / __ \\___  _________ _   _____  _______  __
+  / __  / / / / __/ _ \\  / /_/ / _ \\/ ___/ __ \\ | / / _ \\/ ___/ / / /
+ / /_/ / /_/ / /_/  __/ / _, _/  __/ /__/ /_/ / |/ /  __/ /  / /_/ / 
+/_____/\\__, /\\__/\\___/ /_/ |_|\\___/\\___/\\____/|___/\\___/_/   \\__, /  
+      /____/                                                /____/   
 {Colors.ENDC}"""
 
     print(ASCII_ART)
@@ -373,7 +378,11 @@ if __name__ == "__main__":
     # Handle info flags
     if args.list_drives:
         if sys.platform != 'win32':
-            print("[!] Drive listing only available on Windows")
+            print("[!] Built-in drive listing is currently only available on Windows.")
+            if sys.platform == 'darwin':
+                print("    On macOS, please run the command: diskutil list")
+            else:
+                print("    On Linux, please run the command: lsblk")
             sys.exit(1)
         drives = get_available_drives()
         print("Available drives:")
@@ -400,12 +409,22 @@ if __name__ == "__main__":
     max_size = args.max_size * 1024 * 1024
     
     if not target_drive:
-        print(f"{Colors.WARNING}Interactive Mode Started (Run as Administrator!){Colors.ENDC}\n")
-        drives = get_available_drives()
-        if drives:
-            print(f"{Colors.OKGREEN}Available Windows Drives: {Colors.ENDC}{', '.join(drives)}\n")
-        
-        target_drive = input(f"{Colors.BOLD}Enter target drive{Colors.ENDC} (e.g., {Colors.OKBLUE}D{Colors.ENDC} or {Colors.OKBLUE}PhysicalDrive0{Colors.ENDC}): ").strip()
+        if sys.platform == 'win32':
+            print(f"{Colors.WARNING}Interactive Mode Started (Run as Administrator!){Colors.ENDC}\n")
+            drives = get_available_drives()
+            if drives:
+                print(f"{Colors.OKGREEN}Available Windows Drives: {Colors.ENDC}{', '.join(drives)}\n")
+            example_prompt = f"{Colors.OKBLUE}D{Colors.ENDC} or {Colors.OKBLUE}PhysicalDrive0{Colors.ENDC}"
+        elif sys.platform == 'darwin':
+            print(f"{Colors.WARNING}Interactive Mode Started (Run with sudo!){Colors.ENDC}\n")
+            print(f"{Colors.OKGREEN}Tip: Run 'diskutil list' in another terminal to find your drive.{Colors.ENDC}\n")
+            example_prompt = f"{Colors.OKBLUE}/dev/rdisk2{Colors.ENDC}"
+        else:
+            print(f"{Colors.WARNING}Interactive Mode Started (Run with sudo!){Colors.ENDC}\n")
+            print(f"{Colors.OKGREEN}Tip: Run 'lsblk' in another terminal to find your drive.{Colors.ENDC}\n")
+            example_prompt = f"{Colors.OKBLUE}/dev/sdb{Colors.ENDC}"
+            
+        target_drive = input(f"{Colors.BOLD}Enter target drive{Colors.ENDC} (e.g., {example_prompt}): ").strip()
         while not target_drive:
             target_drive = input(f"{Colors.FAIL}Drive is required:{Colors.ENDC} ").strip()
         

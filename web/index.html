@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Byte Recovery Pro</title>
+    <link href="style.css" rel="stylesheet">
+    <script type="text/javascript" src="/eel.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-mesh"></div>
+
+    <div class="container glass-panel">
+        <header>
+            <div class="logo">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="url(#gradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#3b82f6" />
+                            <stop offset="100%" stop-color="#8b5cf6" />
+                        </linearGradient>
+                    </defs>
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+                <h1>Byte Recovery <span class="badge">PRO</span></h1>
+            </div>
+            <p class="subtitle">Deep-Scan File Carving Engine</p>
+        </header>
+
+        <main id="setup-screen" class="fade-in">
+            <div class="form-group">
+                <label for="drive-select">Target Drive</label>
+                <div class="input-wrapper">
+                    <div class="input-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12H2M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11zM6 16h.01"/></svg>
+                        <input type="text" id="drive-input" placeholder="e.g. \\.\D: or /dev/rdisk2">
+                    </div>
+                    <select id="drive-select" onchange="document.getElementById('drive-input').value = this.value">
+                        <option value="">Select Drive...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="output-input">Save Destination</label>
+                <div class="input-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <input type="text" id="output-input" value="./recovered" placeholder="./recovered">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>File Filters <span class="optional-tag">(Select types to recover)</span></label>
+                <div class="types-grid" id="types-grid">
+                    <!-- Checkboxes injected by JS -->
+                </div>
+            </div>
+
+            <button class="primary-btn pulse-hover" onclick="startRecovery()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Start Deep Scan
+            </button>
+        </main>
+
+        <main id="scanning-screen" class="hidden fade-in">
+            <div class="status-header">
+                <div class="radar-ping"></div>
+                <h2>Analyzing Sectors...</h2>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-box box-glass">
+                    <span class="stat-label">Scanned Data</span>
+                    <span class="stat-value text-gradient" id="val-scanned">0.0 MB</span>
+                </div>
+                <div class="stat-box box-glass">
+                    <span class="stat-label">Files Detected</span>
+                    <span class="stat-value text-blue" id="val-found">0</span>
+                </div>
+                <div class="stat-box box-glass border-green">
+                    <span class="stat-label">Successfully Saved</span>
+                    <span class="stat-value text-green" id="val-saved">0</span>
+                </div>
+            </div>
+
+            <div class="progress-wrapper">
+                <div class="progress-bar-indefinite"></div>
+            </div>
+            <p class="destination-text">Extracting files to: <strong id="disp-dest" class="text-white"></strong></p>
+            
+            <div id="finish-message" class="hidden finish-banner slide-up">
+                <div class="success-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/></svg>
+                </div>
+                <h3>Recovery Complete</h3>
+                <p>All identified files have been securely carved from the drive.</p>
+                <button class="secondary-btn" onclick="location.reload()">Start New Session</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Developer Attribution Footer -->
+    <footer class="dev-footer">
+        <p>Developed by <span class="dev-name">Guru Kannan</span></p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
