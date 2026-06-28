@@ -1,0 +1,6 @@
+# Runtime dependencies (GUI app)
+eel
+
+# Build dependencies (for building the Windows .exe)
+pyinstaller
+pillow

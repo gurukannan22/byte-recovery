@@ -38,7 +38,7 @@ jobs:
 
       # 3. Install build dependencies
       - name: Install dependencies
-        run: pip install --upgrade eel pyinstaller pillow
+        run: pip install -r requirements.txt
 
       # 4. Determine version ─────────────────────────────────────────────────
       #    Priority: manual input > git tag > version.txt
