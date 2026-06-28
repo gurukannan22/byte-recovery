@@ -1,10 +1,18 @@
 name: Build & Release
 
-# ── Trigger: push a tag like v2.1.0 ──────────────────────────────────────────
+# ── Triggers ──────────────────────────────────────────────────────────────────
+# 1. Push a tag like  v2.1.0  → creates a real GitHub Release + uploads .exe
+# 2. Manually from GitHub UI (Actions → "Build & Release" → "Run workflow")
 on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g. 2.1.0 — without the "v")'
+        required: false
+        default: ''
 
 permissions:
   contents: write   # needed to create GitHub Releases
@@ -15,11 +23,13 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # 1. Check out repo
+      # 1. Check out the full repo
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed to access full tag history
 
-      # 2. Set up Python
+      # 2. Set up Python 3.11
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
@@ -30,20 +40,29 @@ jobs:
       - name: Install dependencies
         run: pip install --upgrade eel pyinstaller
 
-      # 4. Read version (strip leading "v" from tag, e.g. v2.1.0 → 2.1.0)
-      - name: Read version
+      # 4. Determine version ─────────────────────────────────────────────────
+      #    Priority: manual input > git tag > version.txt
+      - name: Determine version
         id: version
         shell: bash
         run: |
-          RAW="${{ github.ref_name }}"
-          VERSION="${RAW#v}"
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="$(cat version.txt | tr -d '[:space:]')"
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION"    >> "$GITHUB_OUTPUT"
           echo "Building version $VERSION"
-          # Sync version.txt with the tag
+          # Always sync version.txt so the exe reports the correct version
           echo "$VERSION" > version.txt
 
-      # 5. Build the .exe with PyInstaller
-      - name: Build executable
+      # 5. Build the standalone .exe ──────────────────────────────────────────
+      - name: Build executable with PyInstaller
+        shell: pwsh
         run: |
           pyinstaller app.py `
             --noconsole `
@@ -53,41 +72,42 @@ jobs:
             --add-data "version.txt;." `
             --clean `
             --noconfirm
-        shell: pwsh
 
-      # 6. Rename the exe to include the version number
+      # 6. Rename exe to include version (makes the download filename clear)
       - name: Rename artifact
         shell: pwsh
         run: |
           $ver = "${{ steps.version.outputs.version }}"
           Rename-Item -Path "dist\ByteRecoveryPro.exe" `
                       -NewName "ByteRecoveryPro-v$ver-windows.exe"
+          Write-Host "Built: ByteRecoveryPro-v$ver-windows.exe"
+          (Get-Item "dist\ByteRecoveryPro-v$ver-windows.exe").Length / 1MB | ForEach-Object { Write-Host "Size: $([math]::Round($_, 1)) MB" }
 
-      # 7. Read CHANGELOG for release notes (extract current version section)
+      # 7. Extract release notes from CHANGELOG.md ───────────────────────────
       - name: Extract release notes
-        id: notes
         shell: pwsh
         run: |
           $ver = "${{ steps.version.outputs.version }}"
           $content = Get-Content CHANGELOG.md -Raw
-          # Match from "## [X.Y.Z]" to the next "## [" or end of file
-          if ($content -match "(?s)(## \[$ver\][^\n]*\n)(.*?)(?=## \[|\z)") {
+          if ($content -match "(?s)(## \[$ver\][^\n]*\n)(.*?)(?=\n## \[|\z)") {
             $notes = $Matches[2].Trim()
           } else {
-            $notes = "See CHANGELOG.md for details."
+            $notes = "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for full details."
           }
-          # Write to file to handle multi-line safely
           $notes | Out-File -FilePath release_notes.txt -Encoding utf8
+          Write-Host "Release notes:`n$notes"
 
-      # 8. Create GitHub Release and upload the exe
+      # 8. Create GitHub Release and upload the .exe ─────────────────────────
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: "Byte Recovery Pro v${{ steps.version.outputs.version }}"
-          tag_name: ${{ github.ref_name }}
+          tag_name: "${{ steps.version.outputs.tag }}"
           body_path: release_notes.txt
           draft: false
           prerelease: false
-          files: dist/ByteRecoveryPro-v${{ steps.version.outputs.version }}-windows.exe
+          make_latest: true
+          files: |
+            dist/ByteRecoveryPro-v${{ steps.version.outputs.version }}-windows.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
