@@ -2,7 +2,8 @@ import eel
 import os
 import sys
 import threading
-from recovery import RecoveryEngine, get_available_drives, FILE_SIGNATURES
+import ctypes
+from recovery import RecoveryEngine, get_available_drives_info, FILE_SIGNATURES
 
 # Initialize eel with the web directory
 eel.init('web')
@@ -11,14 +12,20 @@ engine_instance = None
 
 @eel.expose
 def get_drives():
-    drives = []
+    return get_available_drives_info()
+
+@eel.expose
+def check_admin():
     if sys.platform == 'win32':
-        drives = get_available_drives()
-        return [f"{d}:\\" for d in drives]
-    elif sys.platform == 'darwin':
-        return ["/dev/rdisk0", "/dev/rdisk1", "/dev/rdisk2"]
+        try:
+            return ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except:
+            return False
     else:
-        return ["/dev/sda", "/dev/sdb"]
+        try:
+            return os.getuid() == 0
+        except:
+            return False
 
 @eel.expose
 def get_file_types():

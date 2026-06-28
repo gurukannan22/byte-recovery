@@ -388,3 +388,23 @@ input[type="text"]:focus, select:focus {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
+
+/* Administrative warning banner styling */
+.warning-banner {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    padding: 15px 20px;
+    border-radius: 14px;
+    margin-bottom: 25px;
+    color: #fca5a5;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.warning-banner svg {
+    flex-shrink: 0;
+    color: #ef4444;
+}

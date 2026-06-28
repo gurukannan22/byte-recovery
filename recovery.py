@@ -128,6 +128,148 @@ def get_available_drives() -> List[str]:
     return drives
 
 
+def get_available_drives_info() -> List[Dict[str, str]]:
+    """Return list of available drives with description, size, and type."""
+    drives = []
+    if sys.platform == 'win32':
+        # 1. Logical Drives
+        bitmask = ctypes.windll.kernel32.GetLogicalDrives()
+        for letter in range(26):
+            if bitmask & (1 << letter):
+                drive_letter = chr(ord('A') + letter)
+                volume_name = ctypes.create_unicode_buffer(1024)
+                file_system_name = ctypes.create_unicode_buffer(1024)
+                res = ctypes.windll.kernel32.GetVolumeInformationW(
+                    f"{drive_letter}:\\",
+                    volume_name, len(volume_name),
+                    None, None, None,
+                    file_system_name, len(file_system_name)
+                )
+                name = volume_name.value if (res and volume_name.value) else "Local Disk"
+                drives.append({
+                    "path": f"{drive_letter}:",
+                    "name": f"Logical Drive {drive_letter}: ({name})",
+                    "type": "logical"
+                })
+        # 2. Physical Drives via PowerShell
+        import subprocess
+        import json
+        try:
+            cmd = ["powershell", "-Command", "Get-CimInstance Win32_DiskDrive | Select-Object DeviceID, Model, Size | ConvertTo-Json"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 and result.stdout.strip():
+                try:
+                    disks = json.loads(result.stdout)
+                    if isinstance(disks, dict):
+                        disks = [disks]
+                    for disk in disks:
+                        dev_id = disk.get("DeviceID", "")
+                        model = disk.get("Model", "Unknown Disk")
+                        size_bytes = disk.get("Size", 0)
+                        if size_bytes:
+                            size_gb = size_bytes / (1024**3)
+                            size_str = f"{size_gb:.1f} GB"
+                        else:
+                            size_str = "Unknown Size"
+                        if dev_id:
+                            drives.append({
+                                "path": dev_id,
+                                "name": f"Physical Disk {dev_id.split('L')[-1]} - {model} ({size_str})",
+                                "type": "physical"
+                            })
+                except Exception:
+                    pass
+        except Exception:
+            # Fallback to WMIC
+            try:
+                cmd = ["wmic", "diskdrive", "get", "DeviceID,Caption,Size", "/format:csv"]
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    lines = result.stdout.strip().split("\n")
+                    for line in lines[1:]:
+                        parts = line.strip().split(",")
+                        if len(parts) >= 4:
+                            dev_id = parts[2].strip()
+                            caption = parts[1].strip()
+                            size = parts[3].strip()
+                            if dev_id and caption:
+                                try:
+                                    size_gb = int(size) / (1024**3)
+                                    size_str = f"{size_gb:.1f} GB"
+                                except:
+                                    size_str = "Unknown Size"
+                                drives.append({
+                                    "path": dev_id,
+                                    "name": f"Physical Disk {dev_id.split('L')[-1]} - {caption} ({size_str})",
+                                    "type": "physical"
+                                })
+            except Exception:
+                pass
+    elif sys.platform == 'darwin':
+        import subprocess
+        import re
+        try:
+            result = subprocess.run(["diskutil", "list"], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                sections = result.stdout.split("\n\n")
+                for section in sections:
+                    lines = section.strip().split("\n")
+                    if not lines:
+                        continue
+                    first_line = lines[0]
+                    match = re.match(r'(/dev/disk\d+)\s+\(([^)]+)\):', first_line)
+                    if match:
+                        dev_path = match.group(1)
+                        desc = match.group(2)
+                        size_str = "Unknown Size"
+                        for line in lines[1:]:
+                            if "*" in line or "+" in line:
+                                size_match = re.search(r'[*+]([\d.]+\s+[KMGTP]B)', line)
+                                if size_match:
+                                    size_str = size_match.group(1)
+                                    break
+                        raw_path = dev_path.replace("/dev/disk", "/dev/rdisk")
+                        drives.append({
+                            "path": raw_path,
+                            "name": f"{raw_path} ({desc}, {size_str})",
+                            "type": "physical"
+                        })
+        except:
+            pass
+        if not drives:
+            drives = [
+                {"path": "/dev/rdisk0", "name": "/dev/rdisk0 (System Drive)", "type": "physical"},
+                {"path": "/dev/rdisk1", "name": "/dev/rdisk1 (Secondary Drive)", "type": "physical"},
+                {"path": "/dev/rdisk2", "name": "/dev/rdisk2 (External/USB)", "type": "physical"}
+            ]
+    else:
+        import subprocess
+        try:
+            result = subprocess.run(["lsblk", "-o", "NAME,SIZE,TYPE,MODEL", "-n", "-J"], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                import json
+                data = json.loads(result.stdout)
+                for dev in data.get("blockdevices", []):
+                    name = dev.get("name", "")
+                    size = dev.get("size", "")
+                    dtype = dev.get("type", "")
+                    model = dev.get("model", "Disk")
+                    if name and dtype in ("disk", "loop"):
+                        drives.append({
+                            "path": f"/dev/{name}",
+                            "name": f"/dev/{name} - {model} ({size})",
+                            "type": "physical"
+                        })
+        except:
+            pass
+        if not drives:
+            drives = [
+                {"path": "/dev/sda", "name": "/dev/sda (Main Disk)", "type": "physical"},
+                {"path": "/dev/sdb", "name": "/dev/sdb (External/USB)", "type": "physical"}
+            ]
+    return drives
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # RECOVERY ENGINE
 # ═══════════════════════════════════════════════════════════════════════════
@@ -198,71 +340,102 @@ class RecoveryEngine:
                 return (ext, header, footer, max_sz, desc)
         return None
     
-    def _read_until_footer(self, fh: BinaryIO, footer: bytes, max_size: int) -> bytes:
-        """Read data until footer found or max_size reached."""
-        buffer = bytearray()
-        chunk_size = 64 * 1024
-        remaining = max_size
-        
-        while remaining > 0:
-            to_read = min(chunk_size, remaining)
-            data = fh.read(to_read)
-            if not data:
-                break
-            buffer.extend(data)
-            remaining -= len(data)
-            
-            idx = buffer.find(footer)
-            if idx != -1:
-                end = idx + len(footer)
-                overshoot = len(buffer) - end
-                if overshoot > 0:
-                    fh.seek(fh.tell() - overshoot)
-                return bytes(buffer[:end])
-        return bytes(buffer)
-    
     def _recover_file(self, fh: BinaryIO, start_offset: int, ext: str, header: bytes,
                      footer: Optional[bytes], max_size: int, desc: str) -> bool:
-        """Recover a single file from the given offset."""
+        """Recover a single file from the given offset, handling sector alignment."""
+        old_pos = None
         try:
-            fh.seek(start_offset)
+            old_pos = fh.tell()
         except OSError:
-            return False
-        
-        actual_max = min(max_size, self.max_size)
-        
-        if footer:
-            data = self._read_until_footer(fh, footer, actual_max)
-        else:
-            data = fh.read(actual_max)
-        
-        if not data or len(data) < len(header):
-            return False
-        
-        # Verify header still at start
-        if not data.startswith(header):
-            return False
-        
-        self.stats.found += 1
-        seq = self.stats.found
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"recovered_{ts}_{seq:06d}.{ext}"
-        out_path = self.output_dir / filename
-        
+            pass
+            
         try:
-            with open(out_path, 'wb') as out_fh:
-                out_fh.write(data)
-            self.stats.recovered += 1
-            self.stats.by_type[ext] = self.stats.by_type.get(ext, 0) + 1
-            print(f"[+] {desc}: {filename} ({len(data):,} bytes)")
-            return True
-        except OSError as e:
-            self.stats.errors += 1
-            self.log(f"Error writing {filename}: {e}")
-            return False
+            SECTOR_SIZE = 512
+            is_windows_raw = (sys.platform == 'win32' and 
+                              (self.drive_path[0].isalpha() or 
+                               'physicaldrive' in self.drive_path.lower()))
+            
+            if is_windows_raw:
+                aligned_start = (start_offset // SECTOR_SIZE) * SECTOR_SIZE
+                skip = start_offset - aligned_start
+            else:
+                aligned_start = start_offset
+                skip = 0
+                
+            try:
+                fh.seek(aligned_start)
+            except OSError:
+                return False
+                
+            actual_max = min(max_size, self.max_size)
+            buffer = bytearray()
+            chunk_size = 64 * 1024
+            remaining = actual_max + skip
+            
+            found_footer = False
+            footer_pos = -1
+            
+            while remaining > 0:
+                to_read = min(chunk_size, remaining)
+                if is_windows_raw and to_read % SECTOR_SIZE != 0:
+                    to_read = ((to_read + SECTOR_SIZE - 1) // SECTOR_SIZE) * SECTOR_SIZE
+                    
+                data = fh.read(to_read)
+                if not data:
+                    break
+                    
+                buffer.extend(data)
+                remaining -= len(data)
+                
+                if footer:
+                    search_start = max(skip, len(buffer) - len(data) - len(footer))
+                    idx = buffer.find(footer, search_start)
+                    if idx != -1:
+                        footer_pos = idx + len(footer)
+                        found_footer = True
+                        break
+            
+            if found_footer:
+                file_data = bytes(buffer[skip:footer_pos])
+            else:
+                file_data = bytes(buffer[skip:skip + actual_max])
+                
+            if not file_data or len(file_data) < len(header):
+                return False
+                
+            if not file_data.startswith(header):
+                return False
+                
+            self.stats.found += 1
+            seq = self.stats.found
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"recovered_{ts}_{seq:06d}.{ext}"
+            
+            # Save files organized by extension subdirectory
+            type_dir = self.output_dir / ext
+            type_dir.mkdir(parents=True, exist_ok=True)
+            out_path = type_dir / filename
+            
+            try:
+                with open(out_path, 'wb') as out_fh:
+                    out_fh.write(file_data)
+                self.stats.recovered += 1
+                self.stats.by_type[ext] = self.stats.by_type.get(ext, 0) + 1
+                print(f"[+] {desc}: {ext}/{filename} ({len(file_data):,} bytes)")
+                return True
+            except OSError as e:
+                self.stats.errors += 1
+                self.log(f"Error writing {filename}: {e}")
+                return False
+        finally:
+            if old_pos is not None:
+                try:
+                    fh.seek(old_pos)
+                except OSError:
+                    pass
     
     def scan(self, start_offset: int = 0, limit: Optional[int] = None):
-        """Scan the drive for file signatures."""
+        """Scan the drive for file signatures, keeping disk operations aligned."""
         print(f"\n{Colors.OKCYAN}{Colors.BOLD}╔════════════════════════════════════════════════════════════╗{Colors.ENDC}")
         print(f"{Colors.OKCYAN}{Colors.BOLD}║{Colors.ENDC} {Colors.OKBLUE}Target Drive:{Colors.ENDC} {self.drive_path: <43} {Colors.OKCYAN}{Colors.BOLD}║{Colors.ENDC}")
         print(f"{Colors.OKCYAN}{Colors.BOLD}║{Colors.ENDC} {Colors.OKBLUE}Destination:{Colors.ENDC}  {str(self.output_dir.absolute()): <43} {Colors.OKCYAN}{Colors.BOLD}║{Colors.ENDC}")
@@ -290,22 +463,43 @@ class RecoveryEngine:
             raise Exception(f"Cannot open drive: {e}")
         
         try:
-            fh.seek(start_offset)
+            SECTOR_SIZE = 512
+            is_windows_raw = (sys.platform == 'win32' and 
+                              (self.drive_path[0].isalpha() or 
+                               'physicaldrive' in self.drive_path.lower()))
+            
+            if is_windows_raw:
+                aligned_start = (start_offset // SECTOR_SIZE) * SECTOR_SIZE
+                skip_bytes = start_offset - aligned_start
+            else:
+                aligned_start = start_offset
+                skip_bytes = 0
+                
+            fh.seek(aligned_start)
             buffer = b''
             offset = start_offset
             bytes_read = 0
+            first_chunk = True
             
             while True:
                 if limit and bytes_read >= limit:
                     break
                 
                 to_read = min(CHUNK_SIZE, limit - bytes_read) if limit else CHUNK_SIZE
+                if is_windows_raw and to_read % SECTOR_SIZE != 0:
+                    to_read = ((to_read + SECTOR_SIZE - 1) // SECTOR_SIZE) * SECTOR_SIZE
+                    
                 data = fh.read(to_read)
                 if not data:
                     break
                 
                 bytes_read += len(data)
                 self.stats.scanned = bytes_read
+                
+                if first_chunk:
+                    if skip_bytes > 0:
+                        data = data[skip_bytes:]
+                    first_chunk = False
                 
                 # Combine with leftover from previous chunk
                 scan_data = buffer + data
@@ -377,18 +571,14 @@ if __name__ == "__main__":
     
     # Handle info flags
     if args.list_drives:
-        if sys.platform != 'win32':
-            print("[!] Built-in drive listing is currently only available on Windows.")
-            if sys.platform == 'darwin':
-                print("    On macOS, please run the command: diskutil list")
-            else:
-                print("    On Linux, please run the command: lsblk")
-            sys.exit(1)
-        drives = get_available_drives()
+        drives_info = get_available_drives_info()
         print("Available drives:")
-        for d in drives:
-            print(f"  {d}:")
-        print("\nUse 'PhysicalDriveN' for physical disks (e.g., PhysicalDrive0)")
+        for d in drives_info:
+            print(f"  Path: {d['path']: <20} | Name: {d['name']}")
+        if sys.platform == 'win32':
+            print("\nUse 'PhysicalDriveN' for physical disks (e.g., PhysicalDrive0)")
+        elif sys.platform == 'darwin':
+            print("\nUse the raw disk path (e.g., /dev/rdisk2) for maximum scan speed.")
         sys.exit(0)
     
     if args.list_types:

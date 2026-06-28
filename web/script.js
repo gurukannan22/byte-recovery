@@ -1,12 +1,18 @@
 // Initialization
 window.onload = async () => {
+    // Check admin status
+    const isAdmin = await eel.check_admin()();
+    if (!isAdmin) {
+        document.getElementById('admin-warning').classList.remove('hidden');
+    }
+
     // Load drives
     const drives = await eel.get_drives()();
     const select = document.getElementById('drive-select');
     drives.forEach(d => {
         let opt = document.createElement('option');
-        opt.value = d;
-        opt.innerHTML = d;
+        opt.value = d.path;
+        opt.innerHTML = d.name;
         select.appendChild(opt);
     });
 
@@ -54,9 +60,14 @@ function update_progress(mb_scanned, found, saved) {
 
 eel.expose(recovery_finished);
 function recovery_finished(found, saved) {
-    document.querySelector('.pulse-ring').style.display = 'none';
+    const radar = document.querySelector('.radar-ping');
+    if (radar) radar.style.display = 'none';
+    
     document.querySelector('.status-header h2').innerText = 'Scan Complete';
-    document.querySelector('.progress-container').style.display = 'none';
+    
+    const progress = document.querySelector('.progress-wrapper');
+    if (progress) progress.style.display = 'none';
+    
     document.getElementById('finish-message').classList.remove('hidden');
 }
 
