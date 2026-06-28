@@ -1,0 +1,93 @@
+name: Build & Release
+
+# ── Trigger: push a tag like v2.1.0 ──────────────────────────────────────────
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write   # needed to create GitHub Releases
+
+jobs:
+  build-windows:
+    name: Build Windows .exe
+    runs-on: windows-latest
+
+    steps:
+      # 1. Check out repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Python
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # 3. Install build dependencies
+      - name: Install dependencies
+        run: pip install --upgrade eel pyinstaller
+
+      # 4. Read version (strip leading "v" from tag, e.g. v2.1.0 → 2.1.0)
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          RAW="${{ github.ref_name }}"
+          VERSION="${RAW#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building version $VERSION"
+          # Sync version.txt with the tag
+          echo "$VERSION" > version.txt
+
+      # 5. Build the .exe with PyInstaller
+      - name: Build executable
+        run: |
+          pyinstaller app.py `
+            --noconsole `
+            --onefile `
+            --name "ByteRecoveryPro" `
+            --add-data "web;web" `
+            --add-data "version.txt;." `
+            --clean `
+            --noconfirm
+        shell: pwsh
+
+      # 6. Rename the exe to include the version number
+      - name: Rename artifact
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.version.outputs.version }}"
+          Rename-Item -Path "dist\ByteRecoveryPro.exe" `
+                      -NewName "ByteRecoveryPro-v$ver-windows.exe"
+
+      # 7. Read CHANGELOG for release notes (extract current version section)
+      - name: Extract release notes
+        id: notes
+        shell: pwsh
+        run: |
+          $ver = "${{ steps.version.outputs.version }}"
+          $content = Get-Content CHANGELOG.md -Raw
+          # Match from "## [X.Y.Z]" to the next "## [" or end of file
+          if ($content -match "(?s)(## \[$ver\][^\n]*\n)(.*?)(?=## \[|\z)") {
+            $notes = $Matches[2].Trim()
+          } else {
+            $notes = "See CHANGELOG.md for details."
+          }
+          # Write to file to handle multi-line safely
+          $notes | Out-File -FilePath release_notes.txt -Encoding utf8
+
+      # 8. Create GitHub Release and upload the exe
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Byte Recovery Pro v${{ steps.version.outputs.version }}"
+          tag_name: ${{ github.ref_name }}
+          body_path: release_notes.txt
+          draft: false
+          prerelease: false
+          files: dist/ByteRecoveryPro-v${{ steps.version.outputs.version }}-windows.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

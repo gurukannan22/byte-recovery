@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Byte Recovery Pro — Advanced File Carving & Recovery</title>
+    <meta name="description" content="Recover deleted files from any drive — no file system needed. Open-source file carving tool for Windows, macOS, and Linux.">
+    <meta property="og:title" content="Byte Recovery Pro">
+    <meta property="og:description" content="Recover deleted files from raw disk sectors using file carving. Free & open source.">
+    <meta property="og:image" content="https://opengraph.githubassets.com/1/gurukannan22/byte-recovery">
+    <meta name="theme-color" content="#3b82f6">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ── Tokens ── */
+        :root {
+            --bg:       #060608;
+            --surface:  rgba(255,255,255,0.04);
+            --border:   rgba(255,255,255,0.08);
+            --border-b: rgba(255,255,255,0.14);
+            --blue:    #3b82f6;
+            --purple:  #8b5cf6;
+            --green:   #10b981;
+            --text-1:  #f1f5f9;
+            --text-2:  #94a3b8;
+            --text-3:  #475569;
+            --mono:    'JetBrains Mono', monospace;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text-1);
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* ── Background ── */
+        .bg-orbs { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+        .orb { position: absolute; border-radius: 50%; filter: blur(140px); }
+        .orb-1 { width: 700px; height: 700px; background: rgba(59,130,246,0.12); top: -200px; left: -200px; animation: drift 20s ease-in-out infinite alternate; }
+        .orb-2 { width: 600px; height: 600px; background: rgba(139,92,246,0.10); bottom: -200px; right: -100px; animation: drift 25s ease-in-out infinite alternate-reverse; }
+        @keyframes drift { from { transform: translate(0,0); } to { transform: translate(40px,50px); } }
+
+        .bg-grid {
+            position: fixed; inset: 0; z-index: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 44px 44px;
+            mask-image: radial-gradient(ellipse 80% 80% at 50% 30%, black 30%, transparent 100%);
+        }
+
+        /* ── Layout ── */
+        .wrap { max-width: 1100px; margin: 0 auto; padding: 0 28px; position: relative; z-index: 1; }
+
+        /* ── Nav ── */
+        nav {
+            position: sticky; top: 0; z-index: 100;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 28px;
+            backdrop-filter: blur(20px);
+            background: rgba(6,6,8,0.75);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+        .nav-icon {
+            width: 34px; height: 34px; border-radius: 9px;
+            background: linear-gradient(135deg, var(--blue), var(--purple));
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 12px rgba(59,130,246,0.35);
+        }
+        .nav-icon svg { width: 18px; height: 18px; stroke: white; fill: none; stroke-width: 2.2; stroke-linecap: round; }
+        .nav-name { font-size: 1rem; font-weight: 700; color: var(--text-1); }
+        .nav-ver { font-size: 0.65rem; font-weight: 600; color: var(--blue); text-transform: uppercase; letter-spacing: 0.5px; margin-left: 6px; opacity: 0.85; }
+        .nav-links { display: flex; align-items: center; gap: 8px; }
+        .nav-link {
+            padding: 7px 14px; border-radius: 8px;
+            font-size: 0.83rem; font-weight: 500; color: var(--text-2);
+            text-decoration: none; transition: all 0.2s;
+        }
+        .nav-link:hover { color: var(--text-1); background: var(--surface); }
+        .nav-gh {
+            display: flex; align-items: center; gap: 6px;
+            padding: 7px 14px; border-radius: 8px;
+            font-size: 0.83rem; font-weight: 600; color: var(--text-1);
+            text-decoration: none; background: var(--surface);
+            border: 1px solid var(--border-b); transition: all 0.2s;
+        }
+        .nav-gh:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); }
+
+        /* ── Hero ── */
+        .hero {
+            text-align: center;
+            padding: 110px 0 80px;
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 16px; border-radius: 999px;
+            background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.25);
+            font-size: 0.75rem; font-weight: 600; color: #93c5fd;
+            letter-spacing: 0.5px; margin-bottom: 28px;
+        }
+        .hero-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+        h1 {
+            font-size: clamp(2.6rem, 6vw, 4.2rem);
+            font-weight: 900;
+            letter-spacing: -2px;
+            line-height: 1.07;
+            margin-bottom: 22px;
+        }
+        .h1-gradient {
+            background: linear-gradient(135deg, #fff 30%, #94a3b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero-sub {
+            font-size: 1.15rem; color: var(--text-2); max-width: 560px; margin: 0 auto 42px;
+            line-height: 1.7; font-weight: 400;
+        }
+
+        /* Download button */
+        .dl-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+        .dl-btn {
+            display: inline-flex; align-items: center; gap: 12px;
+            padding: 16px 34px; border-radius: 16px; border: none;
+            background: linear-gradient(135deg, var(--blue), var(--purple));
+            color: #fff; font-family: 'Inter', sans-serif;
+            font-size: 1rem; font-weight: 700; cursor: pointer;
+            text-decoration: none; position: relative; overflow: hidden;
+            box-shadow: 0 6px 28px rgba(59,130,246,0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .dl-btn:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(59,130,246,0.55); }
+        .dl-btn .shimmer {
+            position: absolute; top: 0; left: -80%; width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+            transform: skewX(-20deg); animation: shimmer 3s infinite;
+        }
+        @keyframes shimmer { 0%{left:-80%;} 100%{left:160%;} }
+        .dl-btn svg { flex-shrink: 0; }
+
+        .dl-meta { display: flex; align-items: center; gap: 16px; font-size: 0.78rem; color: var(--text-3); }
+        .dl-meta span { display: flex; align-items: center; gap: 5px; }
+
+        .dl-loading { color: var(--text-3); font-size: 0.85rem; }
+        .dl-error   { color: #fca5a5; font-size: 0.82rem; }
+
+        /* ── Stats bar ── */
+        .stats-bar {
+            display: flex; justify-content: center; gap: 0;
+            border: 1px solid var(--border); border-radius: 16px;
+            margin: 64px auto; max-width: 700px; overflow: hidden;
+            backdrop-filter: blur(10px); background: var(--surface);
+        }
+        .stat-item {
+            flex: 1; padding: 24px 20px; text-align: center;
+            border-right: 1px solid var(--border);
+        }
+        .stat-item:last-child { border-right: none; }
+        .stat-num { font-size: 2rem; font-weight: 900; letter-spacing: -1px; color: var(--text-1); }
+        .stat-lbl { font-size: 0.75rem; color: var(--text-3); margin-top: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* ── Section titles ── */
+        section { padding: 80px 0; }
+        .section-label {
+            display: inline-block; font-size: 0.72rem; font-weight: 700;
+            color: var(--blue); text-transform: uppercase; letter-spacing: 1.5px;
+            margin-bottom: 12px;
+        }
+        .section-title {
+            font-size: clamp(1.8rem, 3vw, 2.5rem); font-weight: 800;
+            letter-spacing: -1px; color: var(--text-1); margin-bottom: 14px;
+        }
+        .section-sub { font-size: 1rem; color: var(--text-2); max-width: 520px; line-height: 1.7; }
+
+        /* ── Feature grid ── */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px; margin-top: 48px;
+        }
+        .feature-card {
+            padding: 28px; border-radius: 18px;
+            background: var(--surface); border: 1px solid var(--border);
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .feature-card:hover { border-color: var(--border-b); transform: translateY(-3px); }
+        .feature-icon {
+            width: 46px; height: 46px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 18px;
+        }
+        .fi-blue   { background: rgba(59,130,246,0.12); color: var(--blue); }
+        .fi-purple { background: rgba(139,92,246,0.12); color: var(--purple); }
+        .fi-green  { background: rgba(16,185,129,0.12); color: var(--green); }
+        .fi-amber  { background: rgba(245,158,11,0.12); color: #f59e0b; }
+        .fi-rose   { background: rgba(244,63,94,0.12);  color: #f43f5e; }
+        .fi-cyan   { background: rgba(6,182,212,0.12);  color: #06b6d4; }
+        .feature-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+        .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+        .feature-card p  { font-size: 0.85rem; color: var(--text-2); line-height: 1.65; }
+
+        /* ── Supported types ── */
+        .types-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 32px; }
+        .type-pill {
+            padding: 5px 13px; border-radius: 999px;
+            background: var(--surface); border: 1px solid var(--border);
+            font-size: 0.75rem; font-weight: 600; color: var(--text-2);
+            font-family: var(--mono);
+        }
+
+        /* ── How it works steps ── */
+        .steps { display: flex; flex-direction: column; gap: 0; margin-top: 48px; max-width: 680px; }
+        .step { display: flex; gap: 22px; padding: 22px 0; position: relative; }
+        .step:not(:last-child)::after {
+            content: ''; position: absolute; left: 19px; top: 56px; bottom: 0;
+            width: 1px; background: var(--border);
+        }
+        .step-num {
+            width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px;
+            background: var(--surface); border: 1px solid var(--border-b);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.72rem; font-weight: 800; color: var(--blue); font-family: var(--mono);
+        }
+        .step-body h4 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+        .step-body p  { font-size: 0.85rem; color: var(--text-2); line-height: 1.65; }
+        .step-body code {
+            font-family: var(--mono); font-size: 0.88em;
+            color: #93c5fd; background: rgba(59,130,246,0.1);
+            padding: 1px 6px; border-radius: 4px;
+        }
+
+        /* ── Platform cards ── */
+        .platform-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-top: 48px; }
+        .platform-card {
+            padding: 26px 22px; border-radius: 16px;
+            background: var(--surface); border: 1px solid var(--border);
+        }
+        .platform-card.featured { border-color: rgba(59,130,246,0.3); background: rgba(59,130,246,0.06); }
+        .platform-card h3 { font-size: 1rem; font-weight: 700; margin: 12px 0 6px; }
+        .platform-card p  { font-size: 0.82rem; color: var(--text-2); line-height: 1.6; }
+        .platform-card .cmd {
+            margin-top: 12px; padding: 10px 14px; border-radius: 8px;
+            background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+            font-family: var(--mono); font-size: 0.75rem; color: #86efac;
+        }
+
+        /* ── Download CTA ── */
+        .cta-section {
+            text-align: center; padding: 100px 0;
+        }
+        .cta-card {
+            display: inline-block; max-width: 680px; width: 100%;
+            padding: 56px 48px; border-radius: 28px;
+            background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.08));
+            border: 1px solid rgba(59,130,246,0.2);
+        }
+        .cta-card h2 { font-size: 2rem; font-weight: 900; letter-spacing: -1px; margin-bottom: 12px; }
+        .cta-card p  { color: var(--text-2); margin-bottom: 32px; font-size: 0.95rem; line-height: 1.7; }
+
+        /* ── Footer ── */
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 32px 28px;
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 16px;
+            font-size: 0.8rem; color: var(--text-3);
+        }
+        footer a { color: var(--text-2); text-decoration: none; }
+        footer a:hover { color: var(--text-1); }
+        .footer-links { display: flex; gap: 20px; }
+        .heart { color: #f43f5e; }
+
+        /* ── Divider ── */
+        .divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+        /* ── Responsive ── */
+        @media (max-width: 700px) {
+            nav { padding: 14px 18px; }
+            .nav-links { gap: 4px; }
+            .nav-link { display: none; }
+            h1 { letter-spacing: -1.5px; }
+            .platform-grid { grid-template-columns: 1fr; }
+            .stats-bar { flex-direction: column; }
+            .stat-item { border-right: none; border-bottom: 1px solid var(--border); }
+            .stat-item:last-child { border-bottom: none; }
+            .cta-card { padding: 36px 24px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+</div>
+<div class="bg-grid"></div>
+
+<!-- ── Nav ── -->
+<nav>
+    <a class="nav-brand" href="#">
+        <div class="nav-icon">
+            <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        </div>
+        <span class="nav-name">ByteRecovery<strong>Pro</strong></span>
+        <span class="nav-ver" id="nav-ver"></span>
+    </a>
+    <div class="nav-links">
+        <a class="nav-link" href="#features">Features</a>
+        <a class="nav-link" href="#how-it-works">How It Works</a>
+        <a class="nav-link" href="#platforms">Platforms</a>
+        <a class="nav-gh" href="https://github.com/gurukannan22/byte-recovery" target="_blank">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+            GitHub
+        </a>
+    </div>
+</nav>
+
+<!-- ── Hero ── -->
+<div class="wrap">
+    <section class="hero">
+        <div class="hero-badge">
+            <span class="dot"></span>
+            Open Source · Free · No installation needed
+        </div>
+        <h1>
+            <span class="h1-gradient">Recover any file.<br>From any drive.</span>
+        </h1>
+        <p class="hero-sub">
+            Byte Recovery Pro scans raw disk sectors using file carving — bypassing the file system entirely — to recover deleted files even after formatting, corruption, or accidental deletion.
+        </p>
+
+        <div class="dl-wrap">
+            <div id="dl-container">
+                <p class="dl-loading">⏳ Fetching latest release…</p>
+            </div>
+            <div class="dl-meta" id="dl-meta" style="display:none;">
+                <span>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+                    Windows 10/11 · 64-bit
+                </span>
+                <span>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    Run as Administrator
+                </span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Stats ── -->
+    <div class="stats-bar">
+        <div class="stat-item">
+            <div class="stat-num">30+</div>
+            <div class="stat-lbl">File Types</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">512 KB</div>
+            <div class="stat-lbl">Chunk Size</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">3</div>
+            <div class="stat-lbl">Platforms</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">0</div>
+            <div class="stat-lbl">Dependencies*</div>
+        </div>
+    </div>
+
+    <p style="text-align:center;font-size:0.72rem;color:var(--text-3);margin-top:-52px;margin-bottom:80px;">* The .exe is fully self-contained — no Python or eel installation required.</p>
+
+    <!-- ── Features ── -->
+    <section id="features">
+        <span class="section-label">Features</span>
+        <h2 class="section-title">Everything you need to recover files</h2>
+        <p class="section-sub">A powerful toolkit built for forensic-grade recovery, wrapped in a beautiful desktop UI.</p>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon fi-blue">
+                    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <h3>Deep Sector Scanning</h3>
+                <p>Reads raw disk bytes sector-by-sector, bypassing the file system. Recovers files even after deletion, formatting, or partition loss.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-purple">
+                    <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                </div>
+                <h3>30+ File Types</h3>
+                <p>JPEG, PNG, GIF, PDF, DOCX, XLSX, PPTX, MP4, AVI, MKV, MP3, ZIP, RAR, 7z, SQLite, EXE, and more — including Office files inside ZIP archives.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-green">
+                    <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                </div>
+                <h3>Live Progress Feed</h3>
+                <p>Real-time log of every signature match, with MB scanned, files detected, and files saved — updated as the scan runs.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-amber">
+                    <svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                </div>
+                <h3>Type Filters</h3>
+                <p>Select only the file types you need — speeds up scans dramatically and keeps the output folder clean and organized.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-rose">
+                    <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h3>Sector-Aligned Reads</h3>
+                <p>Win32 raw disk access with 512-byte sector alignment — compatible with NTFS, FAT32, exFAT, APFS, and ext4 drives.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon fi-cyan">
+                    <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                </div>
+                <h3>Beautiful Desktop UI</h3>
+                <p>A modern dark-mode GUI — no command line required. Also ships with a full CLI for power users and scripting.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+<hr class="divider">
+
+<!-- ── Supported Types ── -->
+<div class="wrap">
+    <section>
+        <span class="section-label">Supported Formats</span>
+        <h2 class="section-title">What can be recovered?</h2>
+        <div class="types-row">
+            <span class="type-pill">.jpg</span><span class="type-pill">.png</span><span class="type-pill">.gif</span>
+            <span class="type-pill">.bmp</span><span class="type-pill">.tif</span><span class="type-pill">.webp</span>
+            <span class="type-pill">.pdf</span><span class="type-pill">.doc</span><span class="type-pill">.docx</span>
+            <span class="type-pill">.xls</span><span class="type-pill">.xlsx</span><span class="type-pill">.ppt</span>
+            <span class="type-pill">.pptx</span><span class="type-pill">.rtf</span><span class="type-pill">.zip</span>
+            <span class="type-pill">.rar</span><span class="type-pill">.7z</span><span class="type-pill">.gz</span>
+            <span class="type-pill">.mp3</span><span class="type-pill">.mp4</span><span class="type-pill">.avi</span>
+            <span class="type-pill">.wav</span><span class="type-pill">.mkv</span><span class="type-pill">.flv</span>
+            <span class="type-pill">.ogg</span><span class="type-pill">.flac</span><span class="type-pill">.exe</span>
+            <span class="type-pill">.elf</span><span class="type-pill">.apk</span><span class="type-pill">.jar</span>
+            <span class="type-pill">.sqlite</span>
+        </div>
+    </section>
+</div>
+
+<hr class="divider">
+
+<!-- ── How It Works ── -->
+<div class="wrap">
+    <section id="how-it-works">
+        <span class="section-label">How It Works</span>
+        <h2 class="section-title">No file system? No problem.</h2>
+        <p class="section-sub">File carving works at the binary level — recovering data even when the directory structure is gone.</p>
+
+        <div class="steps">
+            <div class="step">
+                <div class="step-num">01</div>
+                <div class="step-body">
+                    <h4>Open the Raw Disk</h4>
+                    <p>Uses OS-level APIs (<code>CreateFileW</code> on Windows, direct device open on Unix) to read raw physical sectors, bypassing NTFS, APFS, and other file systems entirely.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">02</div>
+                <div class="step-body">
+                    <h4>Scan in 512 KB Chunks</h4>
+                    <p>Reads the disk in sector-aligned 512 KB buffers. A 64-byte tail buffer prevents missing signatures that straddle chunk boundaries.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">03</div>
+                <div class="step-body">
+                    <h4>Match Magic Number Headers</h4>
+                    <p>Each byte is compared against known file headers — e.g. <code>FF D8 FF</code> for JPEG, <code>%PDF</code> for PDF. Office files are detected inside ZIP containers by inspecting internal paths like <code>word/</code> or <code>xl/</code>.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">04</div>
+                <div class="step-body">
+                    <h4>Carve &amp; Save</h4>
+                    <p>Once a header is found, bytes are read until a matching footer (e.g. <code>FF D9</code> for JPEG) or the max size limit is reached. Files are saved in <code>recovered/&lt;type&gt;/</code> subfolders.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<hr class="divider">
+
+<!-- ── Platforms ── -->
+<div class="wrap">
+    <section id="platforms">
+        <span class="section-label">Platforms</span>
+        <h2 class="section-title">Runs everywhere</h2>
+        <p class="section-sub">One codebase — three platforms. The .exe is Windows-only; the Python source runs on macOS and Linux too.</p>
+
+        <div class="platform-grid">
+            <div class="platform-card featured">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="var(--blue)"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+                <h3>Windows <span style="font-size:0.7rem;color:var(--blue);font-weight:600;margin-left:6px;">Recommended</span></h3>
+                <p>Download the standalone .exe — no Python required. Run as Administrator to access raw disks.</p>
+                <div class="cmd">ByteRecoveryPro.exe</div>
+            </div>
+            <div class="platform-card">
+                <svg width="28" height="28" viewBox="0 0 814 1000" fill="var(--text-2)"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105.4-57.5-155.5-127.4C46 790.7 0 663 0 541.8c0-207.1 135.4-316.6 268.8-316.6 101.8 0 186.3 67.1 248.8 67.1 59.9 0 155.2-71.1 264.7-71.1 42 0 152.1 4.8 220.2 82.2zm-246.8-82.2c-23.1-49.9-99.1-106.6-167.9-106.6-6.1 0-12.2.6-18.3 1.6 9.6-57.8 66.2-151.8 164-151.8 5.8 0 11.7.6 17.5 1.6l4.8-1.6z"/></svg>
+                <h3>macOS</h3>
+                <p>Run from source with <code style="font-family:var(--mono);font-size:0.85em;">sudo python3 app.py</code>. Use an external USB drive — macOS SIP protects the boot volume.</p>
+                <div class="cmd">sudo python3 app.py</div>
+            </div>
+            <div class="platform-card">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="var(--text-2)"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18l7 3.12V11c0 4.52-3.08 8.79-7 9.93C8.08 19.79 5 15.52 5 11V6.3l7-3.12z"/></svg>
+                <h3>Linux</h3>
+                <p>Run from source with <code style="font-family:var(--mono);font-size:0.85em;">sudo python3 app.py</code>. Use <code style="font-family:var(--mono);font-size:0.85em;">lsblk</code> to identify your target block device.</p>
+                <div class="cmd">sudo python3 app.py</div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<hr class="divider">
+
+<!-- ── Download CTA ── -->
+<div class="wrap">
+    <section class="cta-section">
+        <div class="cta-card">
+            <h2>Ready to recover your files?</h2>
+            <p>Free, open-source, and self-contained. No telemetry, no cloud, no subscriptions. Your data stays local.</p>
+            <div id="dl-container-2">
+                <p class="dl-loading">⏳ Fetching latest release…</p>
+            </div>
+            <p style="margin-top:18px;font-size:0.75rem;color:var(--text-3);">
+                Or <a href="https://github.com/gurukannan22/byte-recovery" style="color:var(--text-2);">view the source on GitHub</a> to build from source on any platform.
+            </p>
+        </div>
+    </section>
+</div>
+
+<!-- ── Footer ── -->
+<footer>
+    <span>Made with <span class="heart">♥</span> by <a href="https://github.com/gurukannan22" target="_blank">Guru Kannan</a></span>
+    <div class="footer-links">
+        <a href="https://github.com/gurukannan22/byte-recovery" target="_blank">GitHub</a>
+        <a href="https://github.com/gurukannan22/byte-recovery/releases" target="_blank">Releases</a>
+        <a href="https://github.com/gurukannan22/byte-recovery/blob/main/CHANGELOG.md" target="_blank">Changelog</a>
+        <a href="https://github.com/gurukannan22/byte-recovery/issues" target="_blank">Report a Bug</a>
+    </div>
+</footer>
+
+<script>
+    const REPO = 'gurukannan22/byte-recovery';
+    const API  = `https://api.github.com/repos/${REPO}/releases/latest`;
+
+    function makeDownloadBtn(url, ver) {
+        return `
+            <a class="dl-btn" href="${url}" download>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Download for Windows
+                <span style="font-size:0.8rem;opacity:0.75;font-weight:500;">v${ver}</span>
+                <div class="shimmer"></div>
+            </a>`;
+    }
+
+    async function loadRelease() {
+        try {
+            const res  = await fetch(API);
+            if (!res.ok) throw new Error('Network response not ok');
+            const data = await res.json();
+
+            const ver  = data.tag_name.replace(/^v/, '');
+            const exe  = data.assets.find(a => a.name.endsWith('.exe'));
+            const url  = exe ? exe.browser_download_url
+                             : `https://github.com/${REPO}/releases/latest`;
+
+            // Update nav version badge
+            document.getElementById('nav-ver').textContent = `v${ver}`;
+
+            const btn = makeDownloadBtn(url, ver);
+
+            document.getElementById('dl-container').innerHTML  = btn;
+            document.getElementById('dl-container-2').innerHTML = btn;
+            document.getElementById('dl-meta').style.display   = 'flex';
+
+        } catch (err) {
+            const fallback = `<a class="dl-btn" href="https://github.com/${REPO}/releases/latest" target="_blank">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                View Latest Release on GitHub
+                <div class="shimmer"></div>
+            </a>`;
+            document.getElementById('dl-container').innerHTML  = fallback;
+            document.getElementById('dl-container-2').innerHTML = fallback;
+        }
+    }
+
+    loadRelease();
+</script>
+</body>
+</html>
