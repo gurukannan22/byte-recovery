@@ -3,116 +3,297 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Byte Recovery Pro</title>
+    <title>Byte Recovery Pro — Deep Scan File Carving</title>
+    <meta name="description" content="Advanced file carving and recovery utility for Windows, macOS and Linux.">
     <link href="style.css" rel="stylesheet">
     <script type="text/javascript" src="/eel.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="background-mesh"></div>
 
-    <div class="container glass-panel">
-        <header>
-            <div class="logo">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="url(#gradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <defs>
-                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#3b82f6" />
-                            <stop offset="100%" stop-color="#8b5cf6" />
-                        </linearGradient>
-                    </defs>
-                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-                </svg>
-                <h1>Byte Recovery <span class="badge">PRO</span></h1>
+    <!-- Animated background -->
+    <div class="bg-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+    <div class="bg-grid"></div>
+
+    <!-- App wrapper -->
+    <div class="app-shell">
+
+        <!-- ─── SIDEBAR ─── -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-name">ByteRecovery</span>
+                    <span class="brand-version" id="brand-version">PRO v…</span>
+                </div>
             </div>
-            <p class="subtitle">Deep-Scan File Carving Engine</p>
-        </header>
 
-        <div id="admin-warning" class="hidden warning-banner">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/>
-                <line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-            <span><strong>Administrator Privileges Required:</strong> Close and restart this tool as Administrator (Windows) or using sudo (Mac/Linux) to access raw disks.</span>
-        </div>
+            <nav class="sidebar-nav">
+                <a class="nav-item active" id="nav-recover" onclick="showTab('recover')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="1 4 1 10 7 10"/>
+                        <path d="M3.51 15a9 9 0 1 0 .49-3.6"/>
+                    </svg>
+                    <span>Recover</span>
+                </a>
+                <a class="nav-item" id="nav-info" onclick="showTab('info')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <span>How it Works</span>
+                </a>
+            </nav>
 
-        <main id="setup-screen" class="fade-in">
-            <div class="form-group">
-                <label for="drive-select">Target Drive</label>
-                <div class="input-wrapper">
-                    <div class="input-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12H2M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11zM6 16h.01"/></svg>
-                        <input type="text" id="drive-input" placeholder="e.g. \\.\D: or /dev/rdisk2">
+            <div class="sidebar-footer">
+                <div class="system-status" id="system-status">
+                    <div class="status-dot" id="status-dot"></div>
+                    <span id="status-text">Checking...</span>
+                </div>
+                <a class="credit-link" href="https://github.com/gurukannan22" target="_blank">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                    <span>gurukannan22</span>
+                </a>
+                <p class="credit-heart">Made with <span class="heart">&hearts;</span> by Guru Kannan</p>
+            </div>
+        </aside>
+
+        <!-- ─── MAIN CONTENT ─── -->
+        <main class="main-content">
+
+            <!-- RECOVER TAB -->
+            <section id="tab-recover" class="tab-panel active">
+
+                <!-- Setup Screen -->
+                <div id="setup-screen" class="screen fade-in">
+                    <div class="screen-header">
+                        <div>
+                            <h2 class="screen-title">Start Recovery</h2>
+                            <p class="screen-sub">Configure your target drive and scan parameters below.</p>
+                        </div>
+                        <div class="header-badge">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            Sector-Level Carving
+                        </div>
                     </div>
-                    <select id="drive-select" onchange="document.getElementById('drive-input').value = this.value">
-                        <option value="">Select Drive...</option>
-                    </select>
-                </div>
-            </div>
 
-            <div class="form-group">
-                <label for="output-input">Save Destination</label>
-                <div class="input-icon">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                    <input type="text" id="output-input" value="./recovered" placeholder="./recovered">
-                </div>
-            </div>
+                    <!-- Admin warning -->
+                    <div id="admin-warning" class="hidden alert-danger">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <div><strong>Administrator Privileges Required</strong><br>Restart as Administrator (Windows) or using <code>sudo</code> (Mac/Linux).</div>
+                    </div>
 
-            <div class="form-group">
-                <label>File Filters <span class="optional-tag">(Select types to recover)</span></label>
-                <div class="types-grid" id="types-grid">
-                    <!-- Checkboxes injected by JS -->
-                </div>
-            </div>
+                    <div class="form-stack">
+                        <!-- Drive selection -->
+                        <div class="field-group">
+                            <label class="field-label">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                                Target Drive
+                            </label>
+                            <div class="field-row">
+                                <div class="input-wrap flex-1">
+                                    <input type="text" id="drive-input" class="text-input mono" placeholder="e.g. D: or /dev/rdisk2">
+                                </div>
+                                <select id="drive-select" class="select-input" onchange="document.getElementById('drive-input').value = this.value">
+                                    <option value="">Detect drives…</option>
+                                </select>
+                            </div>
+                            <p class="field-hint">Use raw device path for best speed (e.g. <code>/dev/rdisk2</code>)</p>
+                        </div>
 
-            <button class="primary-btn pulse-hover" onclick="startRecovery()">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                Start Deep Scan
-            </button>
-        </main>
+                        <!-- Output dir -->
+                        <div class="field-group">
+                            <label class="field-label">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                                Output Directory
+                            </label>
+                            <div class="input-wrap">
+                                <input type="text" id="output-input" class="text-input mono" value="./recovered" placeholder="./recovered">
+                            </div>
+                        </div>
 
-        <main id="scanning-screen" class="hidden fade-in">
-            <div class="status-header">
-                <div class="radar-ping"></div>
-                <h2>Analyzing Sectors...</h2>
-            </div>
-            
-            <div class="stats-grid">
-                <div class="stat-box box-glass">
-                    <span class="stat-label">Scanned Data</span>
-                    <span class="stat-value text-gradient" id="val-scanned">0.0 MB</span>
-                </div>
-                <div class="stat-box box-glass">
-                    <span class="stat-label">Files Detected</span>
-                    <span class="stat-value text-blue" id="val-found">0</span>
-                </div>
-                <div class="stat-box box-glass border-green">
-                    <span class="stat-label">Successfully Saved</span>
-                    <span class="stat-value text-green" id="val-saved">0</span>
-                </div>
-            </div>
+                        <!-- File type filters -->
+                        <div class="field-group">
+                            <div class="filter-header">
+                                <label class="field-label">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                    File Type Filters
+                                    <span class="optional-tag">leave empty for all</span>
+                                </label>
+                                <div class="filter-actions">
+                                    <button class="chip-btn" onclick="selectAllTypes()">All</button>
+                                    <button class="chip-btn" onclick="clearAllTypes()">None</button>
+                                </div>
+                            </div>
+                            <div class="types-grid" id="types-grid"></div>
+                        </div>
+                    </div>
 
-            <div class="progress-wrapper">
-                <div class="progress-bar-indefinite"></div>
-            </div>
-            <p class="destination-text">Extracting files to: <strong id="disp-dest" class="text-white"></strong></p>
-            
-            <div id="finish-message" class="hidden finish-banner slide-up">
-                <div class="success-icon">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4L12 14.01l-3-3"/></svg>
+                    <button class="primary-btn" id="start-btn" onclick="startRecovery()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        <span>Start Deep Scan</span>
+                        <div class="btn-shimmer"></div>
+                    </button>
                 </div>
-                <h3>Recovery Complete</h3>
-                <p>All identified files have been securely carved from the drive.</p>
-                <button class="secondary-btn" onclick="location.reload()">Start New Session</button>
-            </div>
+
+                <!-- Scanning Screen -->
+                <div id="scanning-screen" class="screen hidden fade-in">
+                    <div class="screen-header">
+                        <div>
+                            <h2 class="screen-title">Scanning Drive</h2>
+                            <p class="screen-sub" id="scan-target-label">Reading raw sectors…</p>
+                        </div>
+                        <div class="pulse-badge">
+                            <div class="pulse-ring"></div>
+                            <span>LIVE</span>
+                        </div>
+                    </div>
+
+                    <!-- Stats cards -->
+                    <div class="stats-row">
+                        <div class="stat-card">
+                            <div class="stat-icon icon-blue">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            </div>
+                            <div class="stat-body">
+                                <span class="stat-val" id="val-scanned">0.0 MB</span>
+                                <span class="stat-lbl">Data Scanned</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon icon-purple">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            </div>
+                            <div class="stat-body">
+                                <span class="stat-val" id="val-found">0</span>
+                                <span class="stat-lbl">Files Detected</span>
+                            </div>
+                        </div>
+                        <div class="stat-card card-success">
+                            <div class="stat-icon icon-green">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            </div>
+                            <div class="stat-body">
+                                <span class="stat-val" id="val-saved">0</span>
+                                <span class="stat-lbl">Saved</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress bar -->
+                    <div class="progress-section">
+                        <div class="progress-track">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <p class="progress-note">
+                            Extracting to: <code id="disp-dest"></code>
+                        </p>
+                    </div>
+
+                    <!-- Log feed -->
+                    <div class="log-panel">
+                        <div class="log-header">
+                            <span>Live Feed</span>
+                            <div class="log-dot"></div>
+                        </div>
+                        <div class="log-body" id="log-body">
+                            <div class="log-entry log-info">Scanner initialized — awaiting first signature match…</div>
+                        </div>
+                    </div>
+
+                    <!-- Completion banner -->
+                    <div id="finish-message" class="hidden finish-card slide-up">
+                        <div class="finish-icon">
+                            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        </div>
+                        <div class="finish-text">
+                            <h3>Recovery Complete</h3>
+                            <p>Files have been carved and saved to your output directory.</p>
+                        </div>
+                        <button class="secondary-btn" onclick="location.reload()">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.6"/></svg>
+                            New Session
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- INFO TAB -->
+            <section id="tab-info" class="tab-panel">
+                <div class="screen fade-in">
+                    <div class="screen-header">
+                        <div>
+                            <h2 class="screen-title">How It Works</h2>
+                            <p class="screen-sub">File carving explained — no file system required.</p>
+                        </div>
+                    </div>
+
+                    <div class="info-steps">
+                        <div class="info-step">
+                            <div class="step-num">01</div>
+                            <div class="step-body">
+                                <h4>Open Raw Disk</h4>
+                                <p>Bypasses the file system (NTFS, APFS, ext4) and opens the physical storage device using OS-level APIs — <code>CreateFileW</code> on Windows, direct file access on Unix.</p>
+                            </div>
+                        </div>
+                        <div class="info-step">
+                            <div class="step-num">02</div>
+                            <div class="step-body">
+                                <h4>Chunk Scanning</h4>
+                                <p>Reads the disk in <strong>512 KB</strong> sector-aligned chunks. Deleted data remains on disk until overwritten, allowing recovery even after standard deletion or formatting.</p>
+                            </div>
+                        </div>
+                        <div class="info-step">
+                            <div class="step-num">03</div>
+                            <div class="step-body">
+                                <h4>Signature Matching</h4>
+                                <p>Each chunk is scanned for known <strong>magic number headers</strong> — e.g. <code>FF D8 FF</code> for JPEG, <code>%PDF</code> for PDF — across <strong>30+ file types</strong>.</p>
+                            </div>
+                        </div>
+                        <div class="info-step">
+                            <div class="step-num">04</div>
+                            <div class="step-body">
+                                <h4>File Extraction</h4>
+                                <p>When a header is found, bytes are read until a matching footer or size limit is reached. Files are saved organized by type into your output directory.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-tags">
+                        <div class="info-tag">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                            Windows, macOS, Linux
+                        </div>
+                        <div class="info-tag">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                            30+ File Types
+                        </div>
+                        <div class="info-tag">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                            Sector-Aligned Reads
+                        </div>
+                        <div class="info-tag">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                            No file system needed
+                        </div>
+                    </div>
+                </div>
+            </section>
+
         </main>
     </div>
-
-    <!-- Developer Attribution Footer -->
-    <footer class="dev-footer">
-        <p>Developed by <span class="dev-name">Guru Kannan</span></p>
-    </footer>
 
     <script src="script.js"></script>
 </body>

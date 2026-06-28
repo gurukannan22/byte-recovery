@@ -10,6 +10,21 @@ eel.init('web')
 
 engine_instance = None
 
+# ── Version helper ──────────────────────────────────────────────────────────
+def _read_version() -> str:
+    """Read version from version.txt next to app.py."""
+    try:
+        base = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(base, 'version.txt'), 'r') as f:
+            return f.read().strip()
+    except Exception:
+        return 'unknown'
+
+@eel.expose
+def get_version():
+    return _read_version()
+
+
 @eel.expose
 def get_drives():
     return get_available_drives_info()
