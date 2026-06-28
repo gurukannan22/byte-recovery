@@ -31,8 +31,10 @@ pyinstaller app.py ^
     --noconsole ^
     --onefile ^
     --name "ByteRecoveryPro" ^
+    --icon "ByteRecIcon.ico" ^
     --add-data "web;web" ^
     --add-data "version.txt;." ^
+    --add-data "ByteRecIcon.png;." ^
     --clean ^
     --noconfirm
 

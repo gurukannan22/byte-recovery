@@ -38,7 +38,7 @@ jobs:
 
       # 3. Install build dependencies
       - name: Install dependencies
-        run: pip install --upgrade eel pyinstaller
+        run: pip install --upgrade eel pyinstaller pillow
 
       # 4. Determine version ─────────────────────────────────────────────────
       #    Priority: manual input > git tag > version.txt
@@ -60,7 +60,20 @@ jobs:
           # Always sync version.txt so the exe reports the correct version
           echo "$VERSION" > version.txt
 
-      # 5. Build the standalone .exe ──────────────────────────────────────────
+      # 5. Convert PNG icon → multi-size ICO (needed by PyInstaller on Windows)
+      - name: Generate ICO icon
+        shell: pwsh
+        run: |
+          python -c "
+          from PIL import Image
+          img = Image.open('ByteRecIcon.png').convert('RGBA')
+          sizes = [16, 24, 32, 48, 64, 128, 256]
+          imgs = [img.resize((s, s), Image.LANCZOS) for s in sizes]
+          imgs[0].save('ByteRecIcon.ico', format='ICO', sizes=[(s,s) for s in sizes], append_images=imgs[1:])
+          print('ICO created')
+          "
+
+      # 6. Build the standalone .exe with PyInstaller
       - name: Build executable with PyInstaller
         shell: pwsh
         run: |
@@ -68,8 +81,10 @@ jobs:
             --noconsole `
             --onefile `
             --name "ByteRecoveryPro" `
+            --icon "ByteRecIcon.ico" `
             --add-data "web;web" `
             --add-data "version.txt;." `
+            --add-data "ByteRecIcon.png;." `
             --clean `
             --noconfirm
 
